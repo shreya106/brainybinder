@@ -3,11 +3,12 @@ import re
 
 def clean_text(text):
 
-    # Replace all whitespace (tabs, newlines, multiple spaces)
+    # Re-join words that the PDF split across lines with a hyphen:
+    # "pro-\ncessed" -> "processed"
+    text = re.sub(r"(\w)-\s*\n\s*(\w)", r"\1\2", text)
+
+    # Replace all remaining whitespace (tabs, newlines, multiple spaces)
     # with a single space
     text = re.sub(r"\s+", " ", text)
 
-    # Remove leading/trailing spaces
-    text = text.strip()
-
-    return text
+    return text.strip()

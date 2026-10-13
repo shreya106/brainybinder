@@ -2,48 +2,103 @@ import re
 
 from config import (
     CHUNK_SIZE,
-    OVERLAP_SENTENCES
+    CHUNK_OVERLAP
 )
 
 
-def chunk_text(
-    text,
-    chunk_size=CHUNK_SIZE,
-    overlap_sentences=OVERLAP_SENTENCES
-):
+def _split_sentences(text, max_length):
+    """
+    Split text into sentences. Any "sentence" longer than max_length
+    (titles, tables, text with no full stops) is cut into word-aligned
+    pieces, so one oversized sentence can never be repeated across chunks.
+    """
 
-    # Split document into sentences
-    sentences = re.split(r'(?<=[.!?])\s+', text)
+    sentences = re.split(r"(?<=[.!?])\s+", text)
 
-    chunks = []
-    current_sentences = []
-    current_length = 0
+    pieces = []
 
     for sentence in sentences:
 
-        # If adding this sentence stays within chunk size
-        if current_length + len(sentence) <= chunk_size:
+        sentence = sentence.strip()
 
-            current_sentences.append(sentence)
-            current_length += len(sentence)
+        if not sentence:
+            continue
 
-        else:
+        while len(sentence) > max_length:
 
-            # Save current chunk
-            chunks.append(" ".join(current_sentences))
+            cut = sentence.rfind(" ", 0, max_length)
 
-            # Keep the last N sentences as overlap
-            current_sentences = current_sentences[-overlap_sentences:]
+            if cut <= 0:
+                cut = max_length
 
-            # Recalculate current length
-            current_length = sum(len(s) for s in current_sentences)
+            pieces.append(sentence[:cut].strip())
+            sentence = sentence[cut:].strip()
 
-            # Add the new sentence
-            current_sentences.append(sentence)
-            current_length += len(sentence)
+        if sentence:
+            pieces.append(sentence)
 
-    # Store last chunk
-    if current_sentences:
-        chunks.append(" ".join(current_sentences))
+    return pieces
+
+
+def chunk_pages(pages,
+                chunk_size=CHUNK_SIZE,
+                overlap=CHUNK_OVERLAP):
+    """
+    pages: list of (page_number, text)
+    returns: list of {"text": ..., "page": ...}
+
+    Chunks are built from whole sentences up to chunk_size characters.
+    The last ~overlap characters of sentences are carried into the next
+    chunk so ideas that span a boundary are not lost.
+    """
+
+    # Flatten into (sentence, page) so chunks can cross page boundaries
+    # while still knowing the page they start on.
+    units = []
+
+    for page_number, text in pages:
+        for sentence in _split_sentences(text, chunk_size):
+            units.append((sentence, page_number))
+
+    chunks = []
+    current = []          # list of (sentence, page)
+    current_length = 0
+
+    for sentence, page in units:
+
+        added_length = len(sentence) + (1 if current else 0)
+
+        if current and current_length + added_length > chunk_size:
+
+            chunks.append({
+                "text": " ".join(s for s, _ in current),
+                "page": current[0][1]
+            })
+
+            # Carry over trailing sentences up to `overlap` characters,
+            # but never the whole chunk (that is what caused duplicates).
+            carried = []
+            carried_length = 0
+
+            for s, p in reversed(current[1:]):
+
+                if carried_length + len(s) > overlap:
+                    break
+
+                carried.insert(0, (s, p))
+                carried_length += len(s) + 1
+
+            current = carried
+            current_length = sum(len(s) for s, _ in current) + max(len(current) - 1, 0)
+            added_length = len(sentence) + (1 if current else 0)
+
+        current.append((sentence, page))
+        current_length += added_length
+
+    if current:
+        chunks.append({
+            "text": " ".join(s for s, _ in current),
+            "page": current[0][1]
+        })
 
     return chunks

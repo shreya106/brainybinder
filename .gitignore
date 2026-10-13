@@ -32,4 +32,4 @@ frontend/.next/
 *.log
 
 # Sample documents
-data/
+data/summaries/
