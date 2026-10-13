@@ -1,8 +1,12 @@
 # BrainyBinder
 
+
 **Your notes, answered.** BrainyBinder is a personal study assistant: upload your PDFs, then ask questions about them in plain English. Answers come from your own notes, with the exact document and page they came from.
 
-![BrainyBinder screenshot](docs/screenshot.png)
+[![Watch the BrainyBinder demo](https://img.youtube.com/vi/s_kXZ-xDktA/maxresdefault.jpg)](https://youtu.be/s_kXZ-xDktA)
+
+**[▶ Watch the demo](https://youtu.be/s_kXZ-xDktA)**
+
 
 ## Features
 
